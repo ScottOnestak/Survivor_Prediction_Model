@@ -29,7 +29,7 @@ player_dataset[player_dataset==""]<-NA
 
 #Set Prediction Parameters
 ```{r set prediction parameters}
-Season = 24
+Season = 16
 Weeks = 14 #Enter number of weeks in season
 
 ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
@@ -805,11 +805,61 @@ for(i in seq(1:dim(ModelingDS)[1])){
 
 ```
 
-#Build Model
+#Build Placement Model
 ```{r build model}
 options(scipen=999)
 
 predicts = ModelingDS %>% 
+  filter(SeasonNumber == Season) %>%
+  select("Name","Placement")
+
+y = "Placement"
+
+h2o.init(nthreads=-1,max_mem_size='6G')
+
+for(i in seq(1:Weeks)){
+  holder = 13 + 3*(i-1)
+  holder2 = 79 + 21*(i-3)
+  
+  if(i == 1){
+    temp = ModelingDS[,c(1:holder)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else if(i == 2){
+    temp = ModelingDS[,c(1:holder,59:68)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else if(i == 3){
+    temp = ModelingDS[,c(1:holder,59:79)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else {
+    temp = ModelingDS[,c(1:holder,59:holder2)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  }
+  
+  train = temp %>% filter(SeasonNumber < Season)
+  test = temp %>% filter(SeasonNumber == Season)
+  
+  train.h2o = as.h2o(train)
+  
+  test.h2o = as.h2o(test)
+  
+  rf_Winner = h2o.randomForest(x = x,
+                               y = y,
+                               training_frame = train.h2o,
+                               ntrees = 1000,
+                               seed = 412)
+  h2o.varimp(rf_Winner)[1:20,]
+  results = as.data.frame(h2o.predict(rf_Winner,newdata = test.h2o))
+  colnames(results) = paste('week',i,'_place',sep='')
+  predicts = cbind(predicts,results[1])
+  
+}
+```
+
+#Build Win % Model
+```{r build win model}
+options(scipen=999)
+
+predicts2 = ModelingDS %>% 
   filter(SeasonNumber == Season) %>%
   select("Name","Placement")
 
@@ -838,7 +888,6 @@ for(i in seq(1:Weeks)){
   train = temp %>% filter(SeasonNumber < Season)
   test = temp %>% filter(SeasonNumber == Season)
   
-  
   train.h2o = as.h2o(train)
   
   test.h2o = as.h2o(test)
@@ -850,15 +899,15 @@ for(i in seq(1:Weeks)){
                                seed = 412)
   h2o.varimp(rf_Winner)[1:20,]
   results = as.data.frame(h2o.predict(rf_Winner,newdata = test.h2o))
-  colnames(results) = paste('week',i,sep='')
-  predicts = cbind(predicts,results[1])
+  colnames(results) = paste('week',i,'_win',sep='')
+  predicts2 = cbind(predicts2,results[1])
   
 }
 ```
 
 #Finish Processing
 ```{r process}
-clean = predicts
+clean = predicts %>% inner_join(.,predicts2,by=c("Name","Placement"))
 
 current = ModelingDS %>% filter(SeasonNumber == Season)
 
@@ -901,23 +950,40 @@ current = current %>% select("Name","EliminationWeek")
 
 clean = clean %>% inner_join(.,current,by="Name")
 
-for(i in seq(1:dim(current)[1])){
+for(i in seq(from=1,to=dim(current)[1],by=1)){
   if(is.na(clean[i,"EliminationWeek"])==F){
     theWeek = clean[i,"EliminationWeek"] + 1
     for(j in seq(from=theWeek,to=Weeks,by=1)){
-      clean[i,paste('week',j,sep='')] = NA
+      clean[i,paste('week',j,"_place",sep='')] = NA
+      clean[i,paste('week',j,"_win",sep='')] = NA
     }
   }
 }
 
-final = clean[,c(1:dim(clean)[2]-1)]
-final[,c(3:length(final))] = NA
-for(i in seq(1:dim(final)[1])){
-  for(j in seq(from=3,to=dim(final)[2],by=1)){
-    if(is.na(clean[i,j])==T){
-      final[i,j] = ''
+score = clean %>% select(c("Name"))
+for(i in seq(from=1,to=dim(clean)[1],by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
+    if(i == 1){
+      score$temp = NA
+      colnames(score)[j+1] = paste("week",j-1,sep="")
+    }
+    
+    if(is.na(clean[i,j+2])==T){
+      score[i,j+1] = NA
     } else {
-      final[i,j] = clean[i,j]/sum(clean[,j],na.rm = T)
+      score[i,j+1] = clean[i,j+2] * clean[i,j+2+Weeks]
+    }
+  }
+}
+
+final = score
+final[,c(2:dim(final)[2])] = NA
+for(i in seq(from=1,to=dim(score)[1],by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
+    if(is.na(score[i,j+1])==T){
+      final[i,j+1] = ''
+    } else {
+      final[i,j+1] = score[i,j+1] / sum(score[,j+1],na.rm = T)
     }
   }
 }
