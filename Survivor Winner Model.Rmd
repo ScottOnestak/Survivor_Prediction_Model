@@ -29,8 +29,8 @@ player_dataset[player_dataset==""]<-NA
 
 #Set Prediction Parameters
 ```{r set prediction parameters}
-Season = 29
-Weeks = 14 #Enter number of weeks in season
+Season = 24
+Weeks = 13 #Enter number of weeks in season
 
 ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
 
@@ -937,7 +937,7 @@ for(i in seq(1:dim(current)[1])){
     current[i,"EliminationWeek"] = 11
   } else if(current[i,"week13_rating"] == "E") {
     current[i,"EliminationWeek"] = 12
-  } else if(is.na(current[i,"week14_rating"])==F) {
+  } else if(Weeks >= 14) {
     if(current[i,"week14_rating"] == "E"){
       current[i,"EliminationWeek"] = 13
     }
@@ -971,11 +971,11 @@ for(i in seq(from=1,to=dim(clean)[1],by=1)){
     if(is.na(clean[i,j+2])==T){
       score[i,j+1] = NA
     } else {
-      if(j < Weeks - 7){
-        Win_Weight = 20
-        Place_Weight = 80
+      if(j < Weeks - 6){
+        Win_Weight = 0
+        Place_Weight = 100
       } else {
-        Win_Weight = 100 - 10*(Weeks-j)
+        Win_Weight = 50/6*(j-(Weeks-6))
         Place_Weight = 100 - Win_Weight
       }
       score[i,j+1] = Place_Weight*((1-(clean[i,j+2]-min(clean[,j+2],na.rm=T))/(max(clean[,j+2],na.rm=T)-min(clean[,j+2],na.rm=T)))+.01) + Win_Weight*(((clean[i,j+2+Weeks]-min(clean[,j+2+Weeks],na.rm=T))/(max(clean[,j+2+Weeks],na.rm=T)-min(clean[,j+2+Weeks],na.rm=T)))+.01)
