@@ -29,8 +29,8 @@ player_dataset[player_dataset==""]<-NA
 
 #Set Prediction Parameters
 ```{r set prediction parameters}
-Season = 24
-Weeks = 13 #Enter number of weeks in season
+Season = 38
+Weeks = 14 #Enter number of weeks in season
 
 ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
 
@@ -977,7 +977,7 @@ for(i in seq(from=1,to=dim(clean)[1],by=1)){
       } else {
         Win_Weight = 50/6*(j-(Weeks-6))
         Place_Weight = 100 - Win_Weight
-      }
+      }5/6/17*7/13/13
       score[i,j+1] = Place_Weight*((1-(clean[i,j+2]-min(clean[,j+2],na.rm=T))/(max(clean[,j+2],na.rm=T)-min(clean[,j+2],na.rm=T)))+.01) + Win_Weight*(((clean[i,j+2+Weeks]-min(clean[,j+2+Weeks],na.rm=T))/(max(clean[,j+2+Weeks],na.rm=T)-min(clean[,j+2+Weeks],na.rm=T)))+.01)
     }
   }
@@ -998,3 +998,175 @@ for(i in seq(from=1,to=dim(score)[1],by=1)){
 write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
 ```
 
+#Edge of Extinction Re-Weighting
+```{r process}
+score2 = score
+score2[,c(2:dim(final)[2])] = NA
+
+for(j in seq(from=2,to=dim(score2)[2],by=1)){
+  for(i in seq(from=1,to=dim(score2)[1])){
+    if(is.na(score[i,j])==T){
+      score2[i,j] = NA
+    } else {
+      if(j == 2){
+        score2[i,j] = 1/18 * score[i,j]
+      }
+      if(j == 3){
+        if(score[i,1]=="Reem Daly"){
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (19-17-((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/17) * score[i,j]
+        }
+      } else if(j == 4){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (18-16-2*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/16) * score[i,j]
+        }
+      } else if(j == 5){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (17-15-3*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/15) * score[i,j]
+        }
+      } else if(j == 6){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Rick Devens") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (16-14-4*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/14) * score[i,j]
+        }
+      } else if(j == 7){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Rick Devens" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Wendy Diaz") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (15-12-6*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/12) * score[i,j]
+        }
+      } else if(j == 8){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else if(score[i,1]=="Keith Sowell" |
+                  score[i,1]=="Wendy Diaz"){
+          score2[i,j] = NA
+        } else {
+          score2[i,j] = (1 + (1/11)*(8/13)) * score[i,j]
+        }
+      } else if(j == 9){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(7/12)) * score[i,j]
+        }
+      } else if(j == 10){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(6/11)) * score[i,j]
+        }
+      } else if(j == 11){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(5/10)) * score[i,j]
+        }
+      } else if(j==12){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(3/8)) * score[i,j]
+        }
+      } else if(j==13){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(2/7)) * score[i,j]
+        }
+      } else if(j==14){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva" |
+           score[i,1]=="Ron Clark") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(1/6)) * score[i,j]
+        }
+      } else if(j==15){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva" |
+           score[i,1]=="Ron Clark" |
+           score[i,1]=="Aurora McCreary") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = score[i,j]
+        }
+      }
+    }
+  }
+}
+
+final = score2
+final[,c(2:dim(final)[2])] = NA
+for(i in seq(from=1,to=dim(score)[1],by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
+    if(is.na(score[i,j+1])==T){
+      final[i,j+1] = ''
+    } else {
+      final[i,j+1] = score2[i,j+1] / sum(score2[,j+1],na.rm = T)
+    }
+  }
+}
+
+write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
+```
