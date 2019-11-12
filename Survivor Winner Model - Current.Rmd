@@ -1,0 +1,1244 @@
+---
+title: "Survivor_Winner_Model_Current"
+author: "Scott Onestak"
+date: "10/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Read in packages
+```{r packages}
+library('dplyr')
+library('h2o')
+```
+
+#Read in data
+```{r read in data}
+player_dataset = read.csv("Survivor_Players_Dataset.csv", header = T, stringsAsFactors = T)
+
+player_dataset$FirstName = as.character(player_dataset$FirstName)
+player_dataset$LastName = as.character(player_dataset$LastName)
+player_dataset$Nickname = as.character(player_dataset$Nickname)
+player_dataset$Name = as.character(player_dataset$Name)
+
+player_dataset[player_dataset==""]<-NA
+```
+
+#Set Prediction Parameters
+```{r set prediction parameters}
+Season = 39
+Weeks = 8 #Enter number of weeks to model... number of episodes so far + 1
+SeasonWeeks = 14 #Enter number of weeks in the season
+
+ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
+```
+
+#Build Variables
+```{r build variables}
+#Week 1
+ModelingDS$week1_avg_vis = ModelingDS$week1_visibility
+ModelingDS$week1_tone_p = ifelse(ModelingDS$week1_tone == "P",1,0)
+ModelingDS$week1_tone_n = ifelse(ModelingDS$week1_tone == "N",1,0)
+ModelingDS$week1_tone_m = ifelse(ModelingDS$week1_tone == "M",1,0)
+ModelingDS$week1_tone_any = ModelingDS$week1_tone_p + ModelingDS$week1_tone_n + ModelingDS$week1_tone_m
+ModelingDS$week1_rating_INV = ifelse(ModelingDS$week1_rating == "INV",1,0)
+ModelingDS$week1_rating_UTR = ifelse(ModelingDS$week1_rating == "UTR",1,0)
+ModelingDS$week1_rating_MOR = ifelse(ModelingDS$week1_rating == "MOR",1,0)
+ModelingDS$week1_rating_CP = ifelse(ModelingDS$week1_rating == "CP",1,0)
+ModelingDS$week1_rating_OTT = ifelse(ModelingDS$week1_rating == "OTT",1,0)
+
+
+#Week 2
+ModelingDS$week2_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility)/2
+ModelingDS$week2_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility)/3
+ModelingDS$week2_tone_p = ifelse(ModelingDS$week2_tone == "P",1,0) + ModelingDS$week1_tone_p
+ModelingDS$week2_tone_n = ifelse(ModelingDS$week2_tone == "N",1,0) + ModelingDS$week1_tone_n
+ModelingDS$week2_tone_m = ifelse(ModelingDS$week2_tone == "M",1,0) + ModelingDS$week1_tone_m
+ModelingDS$week2_tone_any = ModelingDS$week2_tone_p + ModelingDS$week2_tone_n + ModelingDS$week2_tone_m
+ModelingDS$week2_rating_INV = ifelse(ModelingDS$week2_rating == "INV",1,0) + ModelingDS$week1_rating_INV
+ModelingDS$week2_rating_UTR = ifelse(ModelingDS$week2_rating == "UTR",1,0) + ModelingDS$week1_rating_UTR
+ModelingDS$week2_rating_MOR = ifelse(ModelingDS$week2_rating == "MOR",1,0) + ModelingDS$week1_rating_MOR
+ModelingDS$week2_rating_CP = ifelse(ModelingDS$week2_rating == "CP",1,0) + ModelingDS$week1_rating_CP
+ModelingDS$week2_rating_OTT = ifelse(ModelingDS$week2_rating == "OTT",1,0) + ModelingDS$week1_rating_OTT
+
+
+#Week 3
+ModelingDS$week3_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility)/3
+ModelingDS$week3_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility)/6
+ModelingDS$week3_mavg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility)/3
+ModelingDS$week3_tone_p = ifelse(ModelingDS$week3_tone == "P",1,0) + ModelingDS$week2_tone_p
+ModelingDS$week3_tone_n = ifelse(ModelingDS$week3_tone == "N",1,0) + ModelingDS$week2_tone_n
+ModelingDS$week3_tone_m = ifelse(ModelingDS$week3_tone == "M",1,0) + ModelingDS$week2_tone_m
+ModelingDS$week3_tone_any = ModelingDS$week3_tone_p + ModelingDS$week3_tone_n + ModelingDS$week3_tone_m
+ModelingDS$week3_tone_p_chg = ModelingDS$week3_tone_p
+ModelingDS$week3_tone_n_chg = ModelingDS$week3_tone_n
+ModelingDS$week3_tone_m_chg = ModelingDS$week3_tone_m
+ModelingDS$week3_tone_any_chg = ModelingDS$week3_tone_any
+ModelingDS$week3_rating_INV = ifelse(ModelingDS$week3_rating == "INV",1,0) + ModelingDS$week2_rating_INV
+ModelingDS$week3_rating_UTR = ifelse(ModelingDS$week3_rating == "UTR",1,0) + ModelingDS$week2_rating_UTR
+ModelingDS$week3_rating_MOR = ifelse(ModelingDS$week3_rating == "MOR",1,0) + ModelingDS$week2_rating_MOR
+ModelingDS$week3_rating_CP = ifelse(ModelingDS$week3_rating == "CP",1,0) + ModelingDS$week2_rating_CP
+ModelingDS$week3_rating_OTT = ifelse(ModelingDS$week3_rating == "OTT",1,0) + ModelingDS$week2_rating_OT
+ModelingDS$Week3_rating_INV_chg = ModelingDS$week3_rating_INV
+ModelingDS$Week3_rating_UTR_chg = ModelingDS$week3_rating_UTR
+ModelingDS$Week3_rating_MOR_chg = ModelingDS$week3_rating_MOR
+ModelingDS$Week3_rating_CP_chg = ModelingDS$week3_rating_CP
+ModelingDS$Week3_rating_OTT_chg = ModelingDS$week3_rating_OTT
+
+
+#Week 4
+ModelingDS$week4_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility)/4
+ModelingDS$week4_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility)/10
+ModelingDS$week4_mavg_vis = (ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility)/3
+ModelingDS$week4_tone_p = ifelse(ModelingDS$week4_tone == "P",1,0) + ModelingDS$week3_tone_p
+ModelingDS$week4_tone_n = ifelse(ModelingDS$week4_tone == "N",1,0) + ModelingDS$week3_tone_n
+ModelingDS$week4_tone_m = ifelse(ModelingDS$week4_tone == "M",1,0) + ModelingDS$week3_tone_m
+ModelingDS$week4_tone_any = ModelingDS$week4_tone_p + ModelingDS$week4_tone_n + ModelingDS$week4_tone_m
+ModelingDS$week4_tone_p_chg = ModelingDS$week4_tone_p - ModelingDS$week1_tone_p
+ModelingDS$week4_tone_n_chg = ModelingDS$week4_tone_n - ModelingDS$week1_tone_n
+ModelingDS$week4_tone_m_chg = ModelingDS$week4_tone_m - ModelingDS$week1_tone_m
+ModelingDS$week4_tone_any_chg = ModelingDS$week4_tone_any - ModelingDS$week1_tone_any
+ModelingDS$week4_rating_INV = ifelse(ModelingDS$week4_rating == "INV",1,0) + ModelingDS$week3_rating_INV
+ModelingDS$week4_rating_UTR = ifelse(ModelingDS$week4_rating == "UTR",1,0) + ModelingDS$week3_rating_UTR
+ModelingDS$week4_rating_MOR = ifelse(ModelingDS$week4_rating == "MOR",1,0) + ModelingDS$week3_rating_MOR
+ModelingDS$week4_rating_CP = ifelse(ModelingDS$week4_rating == "CP",1,0) + ModelingDS$week3_rating_CP
+ModelingDS$week4_rating_OTT = ifelse(ModelingDS$week4_rating == "OTT",1,0) + ModelingDS$week3_rating_OT
+ModelingDS$Week4_rating_INV_chg = ModelingDS$week4_rating_INV - ModelingDS$week1_rating_INV
+ModelingDS$Week4_rating_UTR_chg = ModelingDS$week4_rating_UTR - ModelingDS$week1_rating_UTR
+ModelingDS$Week4_rating_MOR_chg = ModelingDS$week4_rating_MOR - ModelingDS$week1_rating_MOR
+ModelingDS$Week4_rating_CP_chg = ModelingDS$week4_rating_CP - ModelingDS$week1_rating_CP
+ModelingDS$Week4_rating_OTT_chg = ModelingDS$week4_rating_OTT - ModelingDS$week1_rating_OTT
+
+#Week 5
+ModelingDS$week5_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility)/5
+ModelingDS$week5_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility)/15
+ModelingDS$week5_mavg_vis = (ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility + 
+                              ModelingDS$week5_visibility)/3
+ModelingDS$week5_tone_p = ifelse(ModelingDS$week5_tone == "P",1,0) + ModelingDS$week4_tone_p
+ModelingDS$week5_tone_n = ifelse(ModelingDS$week5_tone == "N",1,0) + ModelingDS$week4_tone_n
+ModelingDS$week5_tone_m = ifelse(ModelingDS$week5_tone == "M",1,0) + ModelingDS$week4_tone_m
+ModelingDS$week5_tone_any = ModelingDS$week5_tone_p + ModelingDS$week5_tone_n + ModelingDS$week5_tone_m
+ModelingDS$week5_tone_p_chg = ModelingDS$week5_tone_p - ModelingDS$week2_tone_p
+ModelingDS$week5_tone_n_chg = ModelingDS$week5_tone_n - ModelingDS$week2_tone_n
+ModelingDS$week5_tone_m_chg = ModelingDS$week5_tone_m - ModelingDS$week2_tone_m
+ModelingDS$week5_tone_any_chg = ModelingDS$week5_tone_any - ModelingDS$week2_tone_any
+ModelingDS$week5_rating_INV = ifelse(ModelingDS$week5_rating == "INV",1,0) + ModelingDS$week4_rating_INV
+ModelingDS$week5_rating_UTR = ifelse(ModelingDS$week5_rating == "UTR",1,0) + ModelingDS$week4_rating_UTR
+ModelingDS$week5_rating_MOR = ifelse(ModelingDS$week5_rating == "MOR",1,0) + ModelingDS$week4_rating_MOR
+ModelingDS$week5_rating_CP = ifelse(ModelingDS$week5_rating == "CP",1,0) + ModelingDS$week4_rating_CP
+ModelingDS$week5_rating_OTT = ifelse(ModelingDS$week5_rating == "OTT",1,0) + ModelingDS$week4_rating_OT
+ModelingDS$Week5_rating_INV_chg = ModelingDS$week5_rating_INV - ModelingDS$week2_rating_INV
+ModelingDS$Week5_rating_UTR_chg = ModelingDS$week5_rating_UTR - ModelingDS$week2_rating_UTR
+ModelingDS$Week5_rating_MOR_chg = ModelingDS$week5_rating_MOR - ModelingDS$week2_rating_MOR
+ModelingDS$Week5_rating_CP_chg = ModelingDS$week5_rating_CP - ModelingDS$week2_rating_CP
+ModelingDS$Week5_rating_OTT_chg = ModelingDS$week5_rating_OTT - ModelingDS$week2_rating_OTT
+
+#Week 6 
+ModelingDS$week6_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility)/6
+ModelingDS$week6_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility)/21
+ModelingDS$week6_mavg_vis = (ModelingDS$week4_visibility + 
+                              ModelingDS$week5_visibility + 
+                              ModelingDS$week6_visibility)/3
+ModelingDS$week6_tone_p = ifelse(ModelingDS$week6_tone == "P",1,0) + ModelingDS$week5_tone_p
+ModelingDS$week6_tone_n = ifelse(ModelingDS$week6_tone == "N",1,0) + ModelingDS$week5_tone_n
+ModelingDS$week6_tone_m = ifelse(ModelingDS$week6_tone == "M",1,0) + ModelingDS$week5_tone_m
+ModelingDS$week6_tone_any = ModelingDS$week6_tone_p + ModelingDS$week6_tone_n + ModelingDS$week6_tone_m
+ModelingDS$week6_tone_p_chg = ModelingDS$week6_tone_p - ModelingDS$week3_tone_p
+ModelingDS$week6_tone_n_chg = ModelingDS$week6_tone_n - ModelingDS$week3_tone_n
+ModelingDS$week6_tone_m_chg = ModelingDS$week6_tone_m - ModelingDS$week3_tone_m
+ModelingDS$week6_tone_any_chg = ModelingDS$week6_tone_any - ModelingDS$week3_tone_any
+ModelingDS$week6_rating_INV = ifelse(ModelingDS$week6_rating == "INV",1,0) + ModelingDS$week5_rating_INV
+ModelingDS$week6_rating_UTR = ifelse(ModelingDS$week6_rating == "UTR",1,0) + ModelingDS$week5_rating_UTR
+ModelingDS$week6_rating_MOR = ifelse(ModelingDS$week6_rating == "MOR",1,0) + ModelingDS$week5_rating_MOR
+ModelingDS$week6_rating_CP = ifelse(ModelingDS$week6_rating == "CP",1,0) + ModelingDS$week5_rating_CP
+ModelingDS$week6_rating_OTT = ifelse(ModelingDS$week6_rating == "OTT",1,0) + ModelingDS$week5_rating_OT
+ModelingDS$Week6_rating_INV_chg = ModelingDS$week6_rating_INV - ModelingDS$week3_rating_INV
+ModelingDS$Week6_rating_UTR_chg = ModelingDS$week6_rating_UTR - ModelingDS$week3_rating_UTR
+ModelingDS$Week6_rating_MOR_chg = ModelingDS$week6_rating_MOR - ModelingDS$week3_rating_MOR
+ModelingDS$Week6_rating_CP_chg = ModelingDS$week6_rating_CP - ModelingDS$week3_rating_CP
+ModelingDS$Week6_rating_OTT_chg = ModelingDS$week6_rating_OTT - ModelingDS$week3_rating_OTT
+
+#Week 7
+ModelingDS$week7_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility)/7
+ModelingDS$week7_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility)/28
+ModelingDS$week7_mavg_vis = (ModelingDS$week5_visibility + 
+                              ModelingDS$week6_visibility + 
+                              ModelingDS$week7_visibility)/3
+ModelingDS$week7_tone_p = ifelse(ModelingDS$week7_tone == "P",1,0) + ModelingDS$week6_tone_p
+ModelingDS$week7_tone_n = ifelse(ModelingDS$week7_tone == "N",1,0) + ModelingDS$week6_tone_n
+ModelingDS$week7_tone_m = ifelse(ModelingDS$week7_tone == "M",1,0) + ModelingDS$week6_tone_m
+ModelingDS$week7_tone_any = ModelingDS$week7_tone_p + ModelingDS$week7_tone_n + ModelingDS$week7_tone_m
+ModelingDS$week7_tone_p_chg = ModelingDS$week7_tone_p - ModelingDS$week4_tone_p
+ModelingDS$week7_tone_n_chg = ModelingDS$week7_tone_n - ModelingDS$week4_tone_n
+ModelingDS$week7_tone_m_chg = ModelingDS$week7_tone_m - ModelingDS$week4_tone_m
+ModelingDS$week7_tone_any_chg = ModelingDS$week7_tone_any - ModelingDS$week4_tone_any
+ModelingDS$week7_rating_INV = ifelse(ModelingDS$week7_rating == "INV",1,0) + ModelingDS$week6_rating_INV
+ModelingDS$week7_rating_UTR = ifelse(ModelingDS$week7_rating == "UTR",1,0) + ModelingDS$week6_rating_UTR
+ModelingDS$week7_rating_MOR = ifelse(ModelingDS$week7_rating == "MOR",1,0) + ModelingDS$week6_rating_MOR
+ModelingDS$week7_rating_CP = ifelse(ModelingDS$week7_rating == "CP",1,0) + ModelingDS$week6_rating_CP
+ModelingDS$week7_rating_OTT = ifelse(ModelingDS$week7_rating == "OTT",1,0) + ModelingDS$week6_rating_OT
+ModelingDS$Week7_rating_INV_chg = ModelingDS$week7_rating_INV - ModelingDS$week4_rating_INV
+ModelingDS$Week7_rating_UTR_chg = ModelingDS$week7_rating_UTR - ModelingDS$week4_rating_UTR
+ModelingDS$Week7_rating_MOR_chg = ModelingDS$week7_rating_MOR - ModelingDS$week4_rating_MOR
+ModelingDS$Week7_rating_CP_chg = ModelingDS$week7_rating_CP - ModelingDS$week4_rating_CP
+ModelingDS$Week7_rating_OTT_chg = ModelingDS$week7_rating_OTT - ModelingDS$week4_rating_OTT
+
+#Week 8
+ModelingDS$week8_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility)/8
+ModelingDS$week8_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility)/36
+ModelingDS$week8_mavg_vis = (ModelingDS$week6_visibility + 
+                              ModelingDS$week7_visibility + 
+                              ModelingDS$week8_visibility)/3
+ModelingDS$week8_tone_p = ifelse(ModelingDS$week8_tone == "P",1,0) + ModelingDS$week7_tone_p
+ModelingDS$week8_tone_n = ifelse(ModelingDS$week8_tone == "N",1,0) + ModelingDS$week7_tone_n
+ModelingDS$week8_tone_m = ifelse(ModelingDS$week8_tone == "M",1,0) + ModelingDS$week7_tone_m
+ModelingDS$week8_tone_any = ModelingDS$week8_tone_p + ModelingDS$week8_tone_n + ModelingDS$week8_tone_m
+ModelingDS$week8_tone_p_chg = ModelingDS$week8_tone_p - ModelingDS$week5_tone_p
+ModelingDS$week8_tone_n_chg = ModelingDS$week8_tone_n - ModelingDS$week5_tone_n
+ModelingDS$week8_tone_m_chg = ModelingDS$week8_tone_m - ModelingDS$week5_tone_m
+ModelingDS$week8_tone_any_chg = ModelingDS$week8_tone_any - ModelingDS$week5_tone_any
+ModelingDS$week8_rating_INV = ifelse(ModelingDS$week8_rating == "INV",1,0) + ModelingDS$week7_rating_INV
+ModelingDS$week8_rating_UTR = ifelse(ModelingDS$week8_rating == "UTR",1,0) + ModelingDS$week7_rating_UTR
+ModelingDS$week8_rating_MOR = ifelse(ModelingDS$week8_rating == "MOR",1,0) + ModelingDS$week7_rating_MOR
+ModelingDS$week8_rating_CP = ifelse(ModelingDS$week8_rating == "CP",1,0) + ModelingDS$week7_rating_CP
+ModelingDS$week8_rating_OTT = ifelse(ModelingDS$week8_rating == "OTT",1,0) + ModelingDS$week7_rating_OT
+ModelingDS$Week8_rating_INV_chg = ModelingDS$week8_rating_INV - ModelingDS$week5_rating_INV
+ModelingDS$Week8_rating_UTR_chg = ModelingDS$week8_rating_UTR - ModelingDS$week5_rating_UTR
+ModelingDS$Week8_rating_MOR_chg = ModelingDS$week8_rating_MOR - ModelingDS$week5_rating_MOR
+ModelingDS$Week8_rating_CP_chg = ModelingDS$week8_rating_CP - ModelingDS$week5_rating_CP
+ModelingDS$Week8_rating_OTT_chg = ModelingDS$week8_rating_OTT - ModelingDS$week5_rating_OTT
+
+#Week 9
+ModelingDS$week9_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility +
+                              ModelingDS$week9_visibility)/9
+ModelingDS$week9_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility +
+                              9*ModelingDS$week9_visibility)/45
+ModelingDS$week9_mavg_vis = (ModelingDS$week7_visibility + 
+                              ModelingDS$week8_visibility + 
+                              ModelingDS$week9_visibility)/3
+ModelingDS$week9_tone_p = ifelse(ModelingDS$week9_tone == "P",1,0) + ModelingDS$week8_tone_p
+ModelingDS$week9_tone_n = ifelse(ModelingDS$week9_tone == "N",1,0) + ModelingDS$week8_tone_n
+ModelingDS$week9_tone_m = ifelse(ModelingDS$week9_tone == "M",1,0) + ModelingDS$week8_tone_m
+ModelingDS$week9_tone_any = ModelingDS$week9_tone_p + ModelingDS$week9_tone_n + ModelingDS$week9_tone_m
+ModelingDS$week9_tone_p_chg = ModelingDS$week9_tone_p - ModelingDS$week6_tone_p
+ModelingDS$week9_tone_n_chg = ModelingDS$week9_tone_n - ModelingDS$week6_tone_n
+ModelingDS$week9_tone_m_chg = ModelingDS$week9_tone_m - ModelingDS$week6_tone_m
+ModelingDS$week9_tone_any_chg = ModelingDS$week9_tone_any - ModelingDS$week6_tone_any
+ModelingDS$week9_rating_INV = ifelse(ModelingDS$week9_rating == "INV",1,0) + ModelingDS$week8_rating_INV
+ModelingDS$week9_rating_UTR = ifelse(ModelingDS$week9_rating == "UTR",1,0) + ModelingDS$week8_rating_UTR
+ModelingDS$week9_rating_MOR = ifelse(ModelingDS$week9_rating == "MOR",1,0) + ModelingDS$week8_rating_MOR
+ModelingDS$week9_rating_CP = ifelse(ModelingDS$week9_rating == "CP",1,0) + ModelingDS$week8_rating_CP
+ModelingDS$week9_rating_OTT = ifelse(ModelingDS$week9_rating == "OTT",1,0) + ModelingDS$week8_rating_OT
+ModelingDS$Week9_rating_INV_chg = ModelingDS$week9_rating_INV - ModelingDS$week6_rating_INV
+ModelingDS$Week9_rating_UTR_chg = ModelingDS$week9_rating_UTR - ModelingDS$week6_rating_UTR
+ModelingDS$Week9_rating_MOR_chg = ModelingDS$week9_rating_MOR - ModelingDS$week6_rating_MOR
+ModelingDS$Week9_rating_CP_chg = ModelingDS$week9_rating_CP - ModelingDS$week6_rating_CP
+ModelingDS$Week9_rating_OTT_chg = ModelingDS$week9_rating_OTT - ModelingDS$week6_rating_OTT
+
+#Week 10
+ModelingDS$week10_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility +
+                              ModelingDS$week9_visibility +
+                              ModelingDS$week10_visibility)/10
+ModelingDS$week10_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility +
+                              9*ModelingDS$week9_visibility +
+                              10*ModelingDS$week10_visibility)/55
+ModelingDS$week10_mavg_vis = (ModelingDS$week8_visibility + 
+                              ModelingDS$week9_visibility + 
+                              ModelingDS$week10_visibility)/3
+ModelingDS$week10_tone_p = ifelse(ModelingDS$week10_tone == "P",1,0) + ModelingDS$week9_tone_p
+ModelingDS$week10_tone_n = ifelse(ModelingDS$week10_tone == "N",1,0) + ModelingDS$week9_tone_n
+ModelingDS$week10_tone_m = ifelse(ModelingDS$week10_tone == "M",1,0) + ModelingDS$week9_tone_m
+ModelingDS$week10_tone_any = ModelingDS$week10_tone_p + ModelingDS$week10_tone_n + ModelingDS$week10_tone_m
+ModelingDS$week10_tone_p_chg = ModelingDS$week10_tone_p - ModelingDS$week7_tone_p
+ModelingDS$week10_tone_n_chg = ModelingDS$week10_tone_n - ModelingDS$week7_tone_n
+ModelingDS$week10_tone_m_chg = ModelingDS$week10_tone_m - ModelingDS$week7_tone_m
+ModelingDS$week10_tone_any_chg = ModelingDS$week10_tone_any - ModelingDS$week7_tone_any
+ModelingDS$week10_rating_INV = ifelse(ModelingDS$week10_rating == "INV",1,0) + ModelingDS$week9_rating_INV
+ModelingDS$week10_rating_UTR = ifelse(ModelingDS$week10_rating == "UTR",1,0) + ModelingDS$week9_rating_UTR
+ModelingDS$week10_rating_MOR = ifelse(ModelingDS$week10_rating == "MOR",1,0) + ModelingDS$week9_rating_MOR
+ModelingDS$week10_rating_CP = ifelse(ModelingDS$week10_rating == "CP",1,0) + ModelingDS$week9_rating_CP
+ModelingDS$week10_rating_OTT = ifelse(ModelingDS$week10_rating == "OTT",1,0) + ModelingDS$week9_rating_OT
+ModelingDS$Week10_rating_INV_chg = ModelingDS$week10_rating_INV - ModelingDS$week7_rating_INV
+ModelingDS$Week10_rating_UTR_chg = ModelingDS$week10_rating_UTR - ModelingDS$week7_rating_UTR
+ModelingDS$Week10_rating_MOR_chg = ModelingDS$week10_rating_MOR - ModelingDS$week7_rating_MOR
+ModelingDS$Week10_rating_CP_chg = ModelingDS$week10_rating_CP - ModelingDS$week7_rating_CP
+ModelingDS$Week10_rating_OTT_chg = ModelingDS$week10_rating_OTT - ModelingDS$week7_rating_OTT
+
+#Week 11
+ModelingDS$week11_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility +
+                              ModelingDS$week9_visibility +
+                              ModelingDS$week10_visibility +
+                              ModelingDS$week11_visibility)/11
+ModelingDS$week11_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility +
+                              9*ModelingDS$week9_visibility +
+                              10*ModelingDS$week10_visibility +
+                              11*ModelingDS$week11_visibility)/66
+ModelingDS$week11_mavg_vis = (ModelingDS$week9_visibility + 
+                              ModelingDS$week10_visibility + 
+                              ModelingDS$week11_visibility)/3
+ModelingDS$week11_tone_p = ifelse(ModelingDS$week11_tone == "P",1,0) + ModelingDS$week10_tone_p
+ModelingDS$week11_tone_n = ifelse(ModelingDS$week11_tone == "N",1,0) + ModelingDS$week10_tone_n
+ModelingDS$week11_tone_m = ifelse(ModelingDS$week11_tone == "M",1,0) + ModelingDS$week10_tone_m
+ModelingDS$week11_tone_any = ModelingDS$week11_tone_p + ModelingDS$week11_tone_n + ModelingDS$week11_tone_m
+ModelingDS$week11_tone_p_chg = ModelingDS$week11_tone_p - ModelingDS$week8_tone_p
+ModelingDS$week11_tone_n_chg = ModelingDS$week11_tone_n - ModelingDS$week8_tone_n
+ModelingDS$week11_tone_m_chg = ModelingDS$week11_tone_m - ModelingDS$week8_tone_m
+ModelingDS$week11_tone_any_chg = ModelingDS$week11_tone_any - ModelingDS$week8_tone_any
+ModelingDS$week11_rating_INV = ifelse(ModelingDS$week11_rating == "INV",1,0) + ModelingDS$week10_rating_INV
+ModelingDS$week11_rating_UTR = ifelse(ModelingDS$week11_rating == "UTR",1,0) + ModelingDS$week10_rating_UTR
+ModelingDS$week11_rating_MOR = ifelse(ModelingDS$week11_rating == "MOR",1,0) + ModelingDS$week10_rating_MOR
+ModelingDS$week11_rating_CP = ifelse(ModelingDS$week11_rating == "CP",1,0) + ModelingDS$week10_rating_CP
+ModelingDS$week11_rating_OTT = ifelse(ModelingDS$week11_rating == "OTT",1,0) + ModelingDS$week10_rating_OT
+ModelingDS$Week11_rating_INV_chg = ModelingDS$week11_rating_INV - ModelingDS$week8_rating_INV
+ModelingDS$Week11_rating_UTR_chg = ModelingDS$week11_rating_UTR - ModelingDS$week8_rating_UTR
+ModelingDS$Week11_rating_MOR_chg = ModelingDS$week11_rating_MOR - ModelingDS$week8_rating_MOR
+ModelingDS$Week11_rating_CP_chg = ModelingDS$week11_rating_CP - ModelingDS$week8_rating_CP
+ModelingDS$Week11_rating_OTT_chg = ModelingDS$week11_rating_OTT - ModelingDS$week8_rating_OTT
+
+#Week 12
+ModelingDS$week12_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility +
+                              ModelingDS$week9_visibility +
+                              ModelingDS$week10_visibility +
+                              ModelingDS$week11_visibility +
+                              ModelingDS$week12_visibility)/12
+ModelingDS$week12_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility +
+                              9*ModelingDS$week9_visibility +
+                              10*ModelingDS$week10_visibility +
+                              11*ModelingDS$week11_visibility +
+                              12*ModelingDS$week12_visibility)/78
+ModelingDS$week12_mavg_vis = (ModelingDS$week10_visibility + 
+                              ModelingDS$week11_visibility + 
+                              ModelingDS$week12_visibility)/3
+ModelingDS$week12_tone_p = ifelse(ModelingDS$week12_tone == "P",1,0) + ModelingDS$week11_tone_p
+ModelingDS$week12_tone_n = ifelse(ModelingDS$week12_tone == "N",1,0) + ModelingDS$week11_tone_n
+ModelingDS$week12_tone_m = ifelse(ModelingDS$week12_tone == "M",1,0) + ModelingDS$week11_tone_m
+ModelingDS$week12_tone_any = ModelingDS$week12_tone_p + ModelingDS$week12_tone_n + ModelingDS$week12_tone_m
+ModelingDS$week12_tone_p_chg = ModelingDS$week12_tone_p - ModelingDS$week9_tone_p
+ModelingDS$week12_tone_n_chg = ModelingDS$week12_tone_n - ModelingDS$week9_tone_n
+ModelingDS$week12_tone_m_chg = ModelingDS$week12_tone_m - ModelingDS$week9_tone_m
+ModelingDS$week12_tone_any_chg = ModelingDS$week12_tone_any - ModelingDS$week9_tone_any
+ModelingDS$week12_rating_INV = ifelse(ModelingDS$week12_rating == "INV",1,0) + ModelingDS$week11_rating_INV
+ModelingDS$week12_rating_UTR = ifelse(ModelingDS$week12_rating == "UTR",1,0) + ModelingDS$week11_rating_UTR
+ModelingDS$week12_rating_MOR = ifelse(ModelingDS$week12_rating == "MOR",1,0) + ModelingDS$week11_rating_MOR
+ModelingDS$week12_rating_CP = ifelse(ModelingDS$week12_rating == "CP",1,0) + ModelingDS$week11_rating_CP
+ModelingDS$week12_rating_OTT = ifelse(ModelingDS$week12_rating == "OTT",1,0) + ModelingDS$week11_rating_OT
+ModelingDS$Week12_rating_INV_chg = ModelingDS$week12_rating_INV - ModelingDS$week9_rating_INV
+ModelingDS$Week12_rating_UTR_chg = ModelingDS$week12_rating_UTR - ModelingDS$week9_rating_UTR
+ModelingDS$Week12_rating_MOR_chg = ModelingDS$week12_rating_MOR - ModelingDS$week9_rating_MOR
+ModelingDS$Week12_rating_CP_chg = ModelingDS$week12_rating_CP - ModelingDS$week9_rating_CP
+ModelingDS$Week12_rating_OTT_chg = ModelingDS$week12_rating_OTT - ModelingDS$week9_rating_OTT
+
+
+#Week 13
+ModelingDS$week13_avg_vis = (ModelingDS$week1_visibility + 
+                              ModelingDS$week2_visibility + 
+                              ModelingDS$week3_visibility + 
+                              ModelingDS$week4_visibility +
+                              ModelingDS$week5_visibility +
+                              ModelingDS$week6_visibility +
+                              ModelingDS$week7_visibility +
+                              ModelingDS$week8_visibility +
+                              ModelingDS$week9_visibility +
+                              ModelingDS$week10_visibility +
+                              ModelingDS$week11_visibility +
+                              ModelingDS$week12_visibility +
+                              ModelingDS$week13_visibility)/13
+ModelingDS$week13_wavg_vis = (ModelingDS$week1_visibility + 
+                              2*ModelingDS$week2_visibility + 
+                              3*ModelingDS$week3_visibility + 
+                              4*ModelingDS$week4_visibility +
+                              5*ModelingDS$week5_visibility +
+                              6*ModelingDS$week6_visibility +
+                              7*ModelingDS$week7_visibility +
+                              8*ModelingDS$week8_visibility +
+                              9*ModelingDS$week9_visibility +
+                              10*ModelingDS$week10_visibility +
+                              11*ModelingDS$week11_visibility +
+                              12*ModelingDS$week12_visibility +
+                              13*ModelingDS$week13_visibility)/91
+ModelingDS$week13_mavg_vis = (ModelingDS$week11_visibility + 
+                              ModelingDS$week12_visibility + 
+                              ModelingDS$week13_visibility)/3
+ModelingDS$week13_tone_p = ifelse(ModelingDS$week13_tone == "P",1,0) + ModelingDS$week12_tone_p
+ModelingDS$week13_tone_n = ifelse(ModelingDS$week13_tone == "N",1,0) + ModelingDS$week12_tone_n
+ModelingDS$week13_tone_m = ifelse(ModelingDS$week13_tone == "M",1,0) + ModelingDS$week12_tone_m
+ModelingDS$week13_tone_any = ModelingDS$week13_tone_p + ModelingDS$week13_tone_n + ModelingDS$week13_tone_m
+ModelingDS$week13_tone_p_chg = ModelingDS$week13_tone_p - ModelingDS$week10_tone_p
+ModelingDS$week13_tone_n_chg = ModelingDS$week13_tone_n - ModelingDS$week10_tone_n
+ModelingDS$week13_tone_m_chg = ModelingDS$week13_tone_m - ModelingDS$week10_tone_m
+ModelingDS$week13_tone_any_chg = ModelingDS$week13_tone_any - ModelingDS$week10_tone_any
+ModelingDS$week13_rating_INV = ifelse(ModelingDS$week13_rating == "INV",1,0) + ModelingDS$week12_rating_INV
+ModelingDS$week13_rating_UTR = ifelse(ModelingDS$week13_rating == "UTR",1,0) + ModelingDS$week12_rating_UTR
+ModelingDS$week13_rating_MOR = ifelse(ModelingDS$week13_rating == "MOR",1,0) + ModelingDS$week12_rating_MOR
+ModelingDS$week13_rating_CP = ifelse(ModelingDS$week13_rating == "CP",1,0) + ModelingDS$week12_rating_CP
+ModelingDS$week13_rating_OTT = ifelse(ModelingDS$week13_rating == "OTT",1,0) + ModelingDS$week12_rating_OT
+ModelingDS$Week13_rating_INV_chg = ModelingDS$week13_rating_INV - ModelingDS$week10_rating_INV
+ModelingDS$Week13_rating_UTR_chg = ModelingDS$week13_rating_UTR - ModelingDS$week10_rating_UTR
+ModelingDS$Week13_rating_MOR_chg = ModelingDS$week13_rating_MOR - ModelingDS$week10_rating_MOR
+ModelingDS$Week13_rating_CP_chg = ModelingDS$week13_rating_CP - ModelingDS$week10_rating_CP
+ModelingDS$Week13_rating_OTT_chg = ModelingDS$week13_rating_OTT - ModelingDS$week10_rating_OTT
+
+
+for(i in seq(1:dim(ModelingDS)[1])){
+  if(is.na(ModelingDS[i,"week2_rating"]) == F){
+    if(as.character(ModelingDS[i,"week2_rating"]) == "E") {
+      ModelingDS[i,"week2_avg_vis"] = -1
+      ModelingDS[i,"week2_wavg_vis"] = -1
+      ModelingDS[i,"week2_tone_p"] = -1
+      ModelingDS[i,"week2_tone_n"] = -1
+      ModelingDS[i,"week2_tone_m"] = -1
+      ModelingDS[i,"week2_tone_any"] = -1
+      ModelingDS[i,"week2_rating_INV"] = -1
+      ModelingDS[i,"week2_rating_UTR"] = -1
+      ModelingDS[i,"week2_rating_MOR"] = -1
+      ModelingDS[i,"week2_rating_CP"] = -1
+      ModelingDS[i,"week2_rating_OTT"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week3_rating"]) == F){
+    if(ModelingDS[i,"week3_rating"] == "E"){
+      ModelingDS[i,"week3_avg_vis"] = -1
+      ModelingDS[i,"week3_wavg_vis"] = -1
+      ModelingDS[i,"week3_mavg_vis"] = -1
+      ModelingDS[i,"week3_tone_p"] = -1
+      ModelingDS[i,"week3_tone_n"] = -1
+      ModelingDS[i,"week3_tone_m"] = -1
+      ModelingDS[i,"week3_tone_any"] = -1
+      ModelingDS[i,"week3_tone_p_chg"] = -1
+      ModelingDS[i,"week3_tone_n_chg"] = -1
+      ModelingDS[i,"week3_tone_m_chg"] = -1
+      ModelingDS[i,"week3_tone_any_chg"] = -1
+      ModelingDS[i,"week3_rating_INV"] = -1
+      ModelingDS[i,"week3_rating_UTR"] = -1
+      ModelingDS[i,"week3_rating_MOR"] = -1
+      ModelingDS[i,"week3_rating_CP"] = -1
+      ModelingDS[i,"week3_rating_OTT"] = -1
+      ModelingDS[i,"Week3_rating_INV_chg"] = -1
+      ModelingDS[i,"Week3_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week3_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week3_rating_CP_chg"] = -1
+      ModelingDS[i,"Week3_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week4_rating"]) == F){
+    if(ModelingDS[i,"week4_rating"] == "E"){
+      ModelingDS[i,"week4_avg_vis"] = -1
+      ModelingDS[i,"week4_wavg_vis"] = -1
+      ModelingDS[i,"week4_mavg_vis"] = -1
+      ModelingDS[i,"week4_tone_p"] = -1
+      ModelingDS[i,"week4_tone_n"] = -1
+      ModelingDS[i,"week4_tone_m"] = -1
+      ModelingDS[i,"week4_tone_any"] = -1
+      ModelingDS[i,"week4_tone_p_chg"] = -1
+      ModelingDS[i,"week4_tone_n_chg"] = -1
+      ModelingDS[i,"week4_tone_m_chg"] = -1
+      ModelingDS[i,"week4_tone_any_chg"] = -1
+      ModelingDS[i,"week4_rating_INV"] = -1
+      ModelingDS[i,"week4_rating_UTR"] = -1
+      ModelingDS[i,"week4_rating_MOR"] = -1
+      ModelingDS[i,"week4_rating_CP"] = -1
+      ModelingDS[i,"week4_rating_OTT"] = -1
+      ModelingDS[i,"Week4_rating_INV_chg"] = -1
+      ModelingDS[i,"Week4_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week4_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week4_rating_CP_chg"] = -1
+      ModelingDS[i,"Week4_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week5_rating"]) == F){
+    if(ModelingDS[i,"week5_rating"] == "E"){
+      ModelingDS[i,"week5_avg_vis"] = -1
+      ModelingDS[i,"week5_wavg_vis"] = -1
+      ModelingDS[i,"week5_mavg_vis"] = -1
+      ModelingDS[i,"week5_tone_p"] = -1
+      ModelingDS[i,"week5_tone_n"] = -1
+      ModelingDS[i,"week5_tone_m"] = -1
+      ModelingDS[i,"week5_tone_any"] = -1
+      ModelingDS[i,"week5_tone_p_chg"] = -1
+      ModelingDS[i,"week5_tone_n_chg"] = -1
+      ModelingDS[i,"week5_tone_m_chg"] = -1
+      ModelingDS[i,"week5_tone_any_chg"] = -1
+      ModelingDS[i,"week5_rating_INV"] = -1
+      ModelingDS[i,"week5_rating_UTR"] = -1
+      ModelingDS[i,"week5_rating_MOR"] = -1
+      ModelingDS[i,"week5_rating_CP"] = -1
+      ModelingDS[i,"week5_rating_OTT"] = -1
+      ModelingDS[i,"Week5_rating_INV_chg"] = -1
+      ModelingDS[i,"Week5_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week5_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week5_rating_CP_chg"] = -1
+      ModelingDS[i,"Week5_rating_OTT_chg"] = -1
+    }
+  }
+
+  if(is.na(ModelingDS[i,"week6_rating"]) == F){
+    if(ModelingDS[i,"week6_rating"] == "E"){
+      ModelingDS[i,"week6_avg_vis"] = -1
+      ModelingDS[i,"week6_wavg_vis"] = -1
+      ModelingDS[i,"week6_mavg_vis"] = -1
+      ModelingDS[i,"week6_tone_p"] = -1
+      ModelingDS[i,"week6_tone_n"] = -1
+      ModelingDS[i,"week6_tone_m"] = -1
+      ModelingDS[i,"week6_tone_any"] = -1
+      ModelingDS[i,"week6_tone_p_chg"] = -1
+      ModelingDS[i,"week6_tone_n_chg"] = -1
+      ModelingDS[i,"week6_tone_m_chg"] = -1
+      ModelingDS[i,"week6_tone_any_chg"] = -1
+      ModelingDS[i,"week6_rating_INV"] = -1
+      ModelingDS[i,"week6_rating_UTR"] = -1
+      ModelingDS[i,"week6_rating_MOR"] = -1
+      ModelingDS[i,"week6_rating_CP"] = -1
+      ModelingDS[i,"week6_rating_OTT"] = -1
+      ModelingDS[i,"Week6_rating_INV_chg"] = -1
+      ModelingDS[i,"Week6_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week6_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week6_rating_CP_chg"] = -1
+      ModelingDS[i,"Week6_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week7_rating"]) == F){
+    if(ModelingDS[i,"week7_rating"] == "E"){
+      ModelingDS[i,"week7_avg_vis"] = -1
+      ModelingDS[i,"week7_wavg_vis"] = -1
+      ModelingDS[i,"week7_mavg_vis"] = -1
+      ModelingDS[i,"week7_tone_p"] = -1
+      ModelingDS[i,"week7_tone_n"] = -1
+      ModelingDS[i,"week7_tone_m"] = -1
+      ModelingDS[i,"week7_tone_any"] = -1
+      ModelingDS[i,"week7_tone_p_chg"] = -1
+      ModelingDS[i,"week7_tone_n_chg"] = -1
+      ModelingDS[i,"week7_tone_m_chg"] = -1
+      ModelingDS[i,"week7_tone_any_chg"] = -1
+      ModelingDS[i,"week7_rating_INV"] = -1
+      ModelingDS[i,"week7_rating_UTR"] = -1
+      ModelingDS[i,"week7_rating_MOR"] = -1
+      ModelingDS[i,"week7_rating_CP"] = -1
+      ModelingDS[i,"week7_rating_OTT"] = -1
+      ModelingDS[i,"Week7_rating_INV_chg"] = -1
+      ModelingDS[i,"Week7_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week7_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week7_rating_CP_chg"] = -1
+      ModelingDS[i,"Week7_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week8_rating"]) == F){
+    if(ModelingDS[i,"week8_rating"] == "E"){
+      ModelingDS[i,"week8_avg_vis"] = -1
+      ModelingDS[i,"week8_wavg_vis"] = -1
+      ModelingDS[i,"week8_mavg_vis"] = -1
+      ModelingDS[i,"week8_tone_p"] = -1
+      ModelingDS[i,"week8_tone_n"] = -1
+      ModelingDS[i,"week8_tone_m"] = -1
+      ModelingDS[i,"week8_tone_any"] = -1
+      ModelingDS[i,"week8_tone_p_chg"] = -1
+      ModelingDS[i,"week8_tone_n_chg"] = -1
+      ModelingDS[i,"week8_tone_m_chg"] = -1
+      ModelingDS[i,"week8_tone_any_chg"] = -1
+      ModelingDS[i,"week8_rating_INV"] = -1
+      ModelingDS[i,"week8_rating_UTR"] = -1
+      ModelingDS[i,"week8_rating_MOR"] = -1
+      ModelingDS[i,"week8_rating_CP"] = -1
+      ModelingDS[i,"week8_rating_OTT"] = -1
+      ModelingDS[i,"Week8_rating_INV_chg"] = -1
+      ModelingDS[i,"Week8_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week8_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week8_rating_CP_chg"] = -1
+      ModelingDS[i,"Week8_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week9_rating"]) == F){
+    if(ModelingDS[i,"week9_rating"] == "E"){
+     ModelingDS[i,"week9_avg_vis"] = -1
+      ModelingDS[i,"week9_wavg_vis"] = -1
+      ModelingDS[i,"week9_mavg_vis"] = -1
+      ModelingDS[i,"week9_tone_p"] = -1
+      ModelingDS[i,"week9_tone_n"] = -1
+      ModelingDS[i,"week9_tone_m"] = -1
+      ModelingDS[i,"week9_tone_any"] = -1
+      ModelingDS[i,"week9_tone_p_chg"] = -1
+      ModelingDS[i,"week9_tone_n_chg"] = -1
+      ModelingDS[i,"week9_tone_m_chg"] = -1
+      ModelingDS[i,"week9_tone_any_chg"] = -1
+      ModelingDS[i,"week9_rating_INV"] = -1
+      ModelingDS[i,"week9_rating_UTR"] = -1
+      ModelingDS[i,"week9_rating_MOR"] = -1
+      ModelingDS[i,"week9_rating_CP"] = -1
+      ModelingDS[i,"week9_rating_OTT"] = -1
+      ModelingDS[i,"Week9_rating_INV_chg"] = -1
+      ModelingDS[i,"Week9_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week9_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week9_rating_CP_chg"] = -1
+      ModelingDS[i,"Week9_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week10_rating"]) == F){
+    if(ModelingDS[i,"week10_rating"] == "E"){
+     ModelingDS[i,"week10_avg_vis"] = -1
+      ModelingDS[i,"week10_wavg_vis"] = -1
+      ModelingDS[i,"week10_mavg_vis"] = -1
+      ModelingDS[i,"week10_tone_p"] = -1
+      ModelingDS[i,"week10_tone_n"] = -1
+      ModelingDS[i,"week10_tone_m"] = -1
+      ModelingDS[i,"week10_tone_any"] = -1
+      ModelingDS[i,"week10_tone_p_chg"] = -1
+      ModelingDS[i,"week10_tone_n_chg"] = -1
+      ModelingDS[i,"week10_tone_m_chg"] = -1
+      ModelingDS[i,"week10_tone_any_chg"] = -1
+      ModelingDS[i,"week10_rating_INV"] = -1
+      ModelingDS[i,"week10_rating_UTR"] = -1
+      ModelingDS[i,"week10_rating_MOR"] = -1
+      ModelingDS[i,"week10_rating_CP"] = -1
+      ModelingDS[i,"week10_rating_OTT"] = -1
+      ModelingDS[i,"Week10_rating_INV_chg"] = -1
+      ModelingDS[i,"Week10_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week10_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week10_rating_CP_chg"] = -1
+      ModelingDS[i,"Week10_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week11_rating"]) == F){
+    if(ModelingDS[i,"week11_rating"] == "E"){
+      ModelingDS[i,"week11_avg_vis"] = -1
+      ModelingDS[i,"week11_wavg_vis"] = -1
+      ModelingDS[i,"week11_mavg_vis"] = -1
+      ModelingDS[i,"week11_tone_p"] = -1
+      ModelingDS[i,"week11_tone_n"] = -1
+      ModelingDS[i,"week11_tone_m"] = -1
+      ModelingDS[i,"week11_tone_any"] = -1
+      ModelingDS[i,"week11_tone_p_chg"] = -1
+      ModelingDS[i,"week11_tone_n_chg"] = -1
+      ModelingDS[i,"week11_tone_m_chg"] = -1
+      ModelingDS[i,"week11_tone_any_chg"] = -1
+      ModelingDS[i,"week11_rating_INV"] = -1
+      ModelingDS[i,"week11_rating_UTR"] = -1
+      ModelingDS[i,"week11_rating_MOR"] = -1
+      ModelingDS[i,"week11_rating_CP"] = -1
+      ModelingDS[i,"week11_rating_OTT"] = -1
+      ModelingDS[i,"Week11_rating_INV_chg"] = -1
+      ModelingDS[i,"Week11_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week11_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week11_rating_CP_chg"] = -1
+      ModelingDS[i,"Week11_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week12_rating"]) == F){
+    if(ModelingDS[i,"week12_rating"] == "E"){
+      ModelingDS[i,"week12_avg_vis"] = -1
+      ModelingDS[i,"week12_wavg_vis"] = -1
+      ModelingDS[i,"week12_mavg_vis"] = -1
+      ModelingDS[i,"week12_tone_p"] = -1
+      ModelingDS[i,"week12_tone_n"] = -1
+      ModelingDS[i,"week12_tone_m"] = -1
+      ModelingDS[i,"week12_tone_any"] = -1
+      ModelingDS[i,"week12_tone_p_chg"] = -1
+      ModelingDS[i,"week12_tone_n_chg"] = -1
+      ModelingDS[i,"week12_tone_m_chg"] = -1
+      ModelingDS[i,"week12_tone_any_chg"] = -1
+      ModelingDS[i,"week12_rating_INV"] = -1
+      ModelingDS[i,"week12_rating_UTR"] = -1
+      ModelingDS[i,"week12_rating_MOR"] = -1
+      ModelingDS[i,"week12_rating_CP"] = -1
+      ModelingDS[i,"week12_rating_OTT"] = -1
+      ModelingDS[i,"Week12_rating_INV_chg"] = -1
+      ModelingDS[i,"Week12_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week12_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week12_rating_CP_chg"] = -1
+      ModelingDS[i,"Week12_rating_OTT_chg"] = -1
+    }
+  }
+  
+  if(is.na(ModelingDS[i,"week13_rating"]) == F){
+    if(ModelingDS[i,"week13_rating"] == "E"){
+      ModelingDS[i,"week13_avg_vis"] = -1
+      ModelingDS[i,"week13_wavg_vis"] = -1
+      ModelingDS[i,"week13_mavg_vis"] = -1
+      ModelingDS[i,"week13_tone_p"] = -1
+      ModelingDS[i,"week13_tone_n"] = -1
+      ModelingDS[i,"week13_tone_m"] = -1
+      ModelingDS[i,"week13_tone_any"] = -1
+      ModelingDS[i,"week13_tone_p_chg"] = -1
+      ModelingDS[i,"week13_tone_n_chg"] = -1
+      ModelingDS[i,"week13_tone_m_chg"] = -1
+      ModelingDS[i,"week13_tone_any_chg"] = -1
+      ModelingDS[i,"week13_rating_INV"] = -1
+      ModelingDS[i,"week13_rating_UTR"] = -1
+      ModelingDS[i,"week13_rating_MOR"] = -1
+      ModelingDS[i,"week13_rating_CP"] = -1
+      ModelingDS[i,"week13_rating_OTT"] = -1
+      ModelingDS[i,"Week13_rating_INV_chg"] = -1
+      ModelingDS[i,"Week13_rating_UTR_chg"] = -1
+      ModelingDS[i,"Week13_rating_MOR_chg"] = -1
+      ModelingDS[i,"Week13_rating_CP_chg"] = -1
+      ModelingDS[i,"Week13_rating_OTT_chg"] = -1
+    }
+  }
+}
+
+```
+
+#Build Placement Model
+```{r build model}
+options(scipen=999)
+
+predicts = ModelingDS %>% 
+  filter(SeasonNumber == Season) %>%
+  select("Name","Placement")
+
+y = "Placement"
+
+h2o.init(nthreads=-1,max_mem_size='6G')
+
+for(i in seq(1:Weeks)){
+  holder = 13 + 3*(i-1)
+  holder2 = 79 + 21*(i-3)
+  
+  if(i == 1){
+    temp = ModelingDS[,c(1:holder)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else if(i == 2){
+    temp = ModelingDS[,c(1:holder,59:68)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else if(i == 3){
+    temp = ModelingDS[,c(1:holder,59:79)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  } else {
+    temp = ModelingDS[,c(1:holder,59:holder2)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Winner"))
+  }
+  
+  train = temp %>% filter(SeasonNumber < Season)
+  test = temp %>% filter(SeasonNumber == Season)
+  
+  train.h2o = as.h2o(train)
+  
+  test.h2o = as.h2o(test)
+  
+  rf_Winner = h2o.randomForest(x = x,
+                               y = y,
+                               training_frame = train.h2o,
+                               ntrees = 1000,
+                               seed = 412)
+  h2o.varimp(rf_Winner)[1:20,]
+  results = as.data.frame(h2o.predict(rf_Winner,newdata = test.h2o))
+  colnames(results) = paste('week',i,'_place',sep='')
+  predicts = cbind(predicts,results[1])
+  
+}
+```
+
+#Build Win % Model
+```{r build win model}
+options(scipen=999)
+
+predicts2 = ModelingDS %>% 
+  filter(SeasonNumber == Season) %>%
+  select("Name","Placement")
+
+y = "Winner"
+
+h2o.init(nthreads=-1,max_mem_size='6G')
+
+for(i in seq(1:Weeks)){
+  holder = 13 + 3*(i-1)
+  holder2 = 79 + 21*(i-3)
+  
+  if(i == 1){
+    temp = ModelingDS[,c(1:holder)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","SeasonNumber","SeasonName","SeasonType","Placement"))
+  } else if(i == 2){
+    temp = ModelingDS[,c(1:holder,59:68)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Placement"))
+  } else if(i == 3){
+    temp = ModelingDS[,c(1:holder,59:79)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Placement"))
+  } else {
+    temp = ModelingDS[,c(1:holder,59:holder2)]
+    x = setdiff(names(temp),c(y,"FirstName","LastName","Nickname","Name","Archetype","SeasonNumber","SeasonName","SeasonType","Placement"))
+  }
+  
+  train = temp %>% filter(SeasonNumber < Season)
+  test = temp %>% filter(SeasonNumber == Season)
+  
+  train.h2o = as.h2o(train)
+  
+  test.h2o = as.h2o(test)
+  
+  rf_Winner = h2o.randomForest(x = x,
+                               y = y,
+                               training_frame = train.h2o,
+                               ntrees = 1000,
+                               seed = 412)
+  h2o.varimp(rf_Winner)[1:20,]
+  results = as.data.frame(h2o.predict(rf_Winner,newdata = test.h2o))
+  colnames(results) = paste('week',i,'_win',sep='')
+  predicts2 = cbind(predicts2,results[1])
+  
+}
+```
+
+#Finish Processing
+```{r process}
+clean = predicts %>% inner_join(.,predicts2,by=c("Name","Placement"))
+
+current = ModelingDS %>% filter(SeasonNumber == Season)
+
+current$EliminationWeek = NA
+for(i in seq(1:dim(current)[1])){
+  if(is.na(current[i,"week2_rating"])==F) {
+    if(current[i,"week2_rating"] == "E"){
+      current[i,"EliminationWeek"] = 1
+    }
+  }
+  
+  if(is.na(current[i,"week3_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week3_rating"]=="E"){
+        current[i,"EliminationWeek"] = 2
+    }
+  } 
+  
+  if(is.na(current[i,"week4_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week4_rating"]=="E"){
+        current[i,"EliminationWeek"] = 3
+    }
+  } 
+  
+  if(is.na(current[i,"week5_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week5_rating"]=="E"){
+        current[i,"EliminationWeek"] = 4
+    }
+  } 
+  
+  if(is.na(current[i,"week6_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week6_rating"]=="E"){
+        current[i,"EliminationWeek"] = 5
+    }
+  } 
+  
+  if(is.na(current[i,"week7_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week7_rating"]=="E"){
+        current[i,"EliminationWeek"] = 6
+    }
+  } 
+  
+  if(is.na(current[i,"week8_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week8_rating"]=="E"){
+        current[i,"EliminationWeek"] = 7
+    }
+  } 
+  
+  if(is.na(current[i,"week9_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week9_rating"]=="E"){
+        current[i,"EliminationWeek"] = 8
+    }
+  } 
+  
+  if(is.na(current[i,"week10_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week10_rating"]=="E"){
+        current[i,"EliminationWeek"] = 9
+    }
+  } 
+  
+  if(is.na(current[i,"week11_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week11_rating"]=="E"){
+        current[i,"EliminationWeek"] = 10
+    }
+  } 
+  
+  if(is.na(current[i,"week12_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week12_rating"]=="E"){
+        current[i,"EliminationWeek"] = 11
+    }
+  } 
+  
+  if(is.na(current[i,"week13_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+    if(current[i,"week13_rating"]=="E"){
+        current[i,"EliminationWeek"] = 12
+    }
+  } 
+  
+  if(Weeks>=14){
+    if(is.na(current[i,"week14_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
+      if(current[i,"week14_rating"]=="E"){
+          current[i,"EliminationWeek"] = 13
+      }
+    } 
+  }
+}
+
+current = current %>% select("Name","EliminationWeek")
+
+
+clean = clean %>% inner_join(.,current,by="Name")
+
+for(i in seq(from=Weeks+1,to=SeasonWeeks,by=1)){
+  clean$test = NA
+  clean$test2 = NA
+  
+  colnames(clean)[dim(clean)[2]-1] = paste("week",i,"_place",sep='')
+  colnames(clean)[dim(clean)[2]] = paste("week",i,"_win",sep='')
+}
+
+clean = clean[,c("Name","Placement","week1_place","week2_place","week3_place","week4_place","week5_place"
+                 ,"week6_place","week7_place","week8_place","week9_place","week10_place","week11_place"
+                 ,"week12_place","week13_place","week14_place","week1_win","week2_win","week3_win","week4_win"
+                 ,"week5_win","week6_win","week7_win","week8_win","week9_win","week10_win","week11_win","week12_win"
+                 ,"week13_win","week14_win","EliminationWeek")]
+
+for(i in seq(from=1,to=dim(current)[1],by=1)){
+  if(is.na(clean[i,"EliminationWeek"])==F){
+    theWeek = clean[i,"EliminationWeek"] + 1
+    for(j in seq(from=theWeek,to=SeasonWeeks,by=1)){
+      clean[i,paste('week',j,"_place",sep='')] = NA
+      clean[i,paste('week',j,"_win",sep='')] = NA
+    }
+  }
+}
+
+score = clean %>% select(c("Name"))
+for(i in seq(from=1,to=dim(clean)[1],by=1)){
+  for(j in seq(from=1,to=SeasonWeeks,by=1)){
+    if(i == 1){
+      score$temp = NA
+      colnames(score)[j+1] = paste("week",j-1,sep="")
+    }
+    
+    if(is.na(clean[i,j+2])==T){
+      score[i,j+1] = NA
+    } else {
+      if(j < SeasonWeeks - 6){
+        Win_Weight = 0
+        Place_Weight = 100
+      } else {
+        Win_Weight = 50/6*(j-(SeasonWeeks-6))
+        Place_Weight = 100 - Win_Weight
+      }
+      score[i,j+1] = Place_Weight*((1-(clean[i,j+2]-min(clean[,j+2],na.rm=T))/(max(clean[,j+2],na.rm=T)-min(clean[,j+2],na.rm=T)))+.01) + Win_Weight*(((clean[i,j+2+SeasonWeeks]-min(clean[,j+2+SeasonWeeks],na.rm=T))/(max(clean[,j+2+SeasonWeeks],na.rm=T)-min(clean[,j+2+SeasonWeeks],na.rm=T)))+.01)
+    }
+  }
+}
+
+final = score
+final[,c(2:dim(final)[2])] = NA
+for(i in seq(from=1,to=dim(score)[1],by=1)){
+  for(j in seq(from=1,to=SeasonWeeks,by=1)){
+    if(is.na(score[i,j+1])==T){
+      final[i,j+1] = ''
+    } else {
+      final[i,j+1] = score[i,j+1] / sum(score[,j+1],na.rm = T)
+    }
+  }
+}
+
+final = final %>% inner_join(.,current,by="Name")
+
+Eliminated = final %>% filter(is.na(EliminationWeek)==F)
+Active = final %>% filter(is.na(EliminationWeek)==T)
+Active = Active[order(Active[, Weeks+1],decreasing = T),]
+
+final = rbind(Active,Eliminated)
+final = final %>% select(-EliminationWeek)
+
+write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
+```
+
+#Edge of Extinction Re-Weighting
+```{r process}
+score2 = score
+score2[,c(2:dim(final)[2])] = NA
+
+for(j in seq(from=2,to=dim(score2)[2],by=1)){
+  for(i in seq(from=1,to=dim(score2)[1])){
+    if(is.na(score[i,j])==T){
+      score2[i,j] = NA
+    } else {
+      if(j == 2){
+        score2[i,j] = 1/18 * score[i,j]
+      }
+      if(j == 3){
+        if(score[i,1]=="Reem Daly"){
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (19-17-((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/17) * score[i,j]
+        }
+      } else if(j == 4){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (18-16-2*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/16) * score[i,j]
+        }
+      } else if(j == 5){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (17-15-3*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/15) * score[i,j]
+        }
+      } else if(j == 6){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Rick Devens") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (16-14-4*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/14) * score[i,j]
+        }
+      } else if(j == 7){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Keith Sowell" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Rick Devens" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Wendy Diaz") {
+          score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (15-12-6*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/12) * score[i,j]
+        }
+      } else if(j == 8){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else if(score[i,1]=="Keith Sowell" |
+                  score[i,1]=="Wendy Diaz"){
+          score2[i,j] = NA
+        } else {
+          score2[i,j] = (1 + (1/11)*(8/13)) * score[i,j]
+        }
+      } else if(j == 9){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(7/12)) * score[i,j]
+        }
+      } else if(j == 10){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(6/11)) * score[i,j]
+        }
+      } else if(j == 11){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(5/10)) * score[i,j]
+        }
+      } else if(j==12){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(3/8)) * score[i,j]
+        }
+      } else if(j==13){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(2/7)) * score[i,j]
+        }
+      } else if(j==14){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva" |
+           score[i,1]=="Ron Clark") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = (1 + (1/11)*(1/6)) * score[i,j]
+        }
+      } else if(j==15){
+        if(score[i,1]=="Reem Daly" |
+           score[i,1]=="Chris Underwood" |
+           score[i,1]=="Aubry Bracco" |
+           score[i,1]=="Joe Anglim" |
+           score[i,1]=="Eric Hafemann" |
+           score[i,1]=="Julia Carter" |
+           score[i,1]=="David Wright" |
+           score[i,1]=="Kelley Wentworth" |
+           score[i,1]=="Dan 'The Wardog' DaSilva" |
+           score[i,1]=="Ron Clark" |
+           score[i,1]=="Aurora McCreary") {
+          score2[i,j] = 1/11 * score[i,j]
+        } else {
+          score2[i,j] = score[i,j]
+        }
+      }
+    }
+  }
+}
+
+final = score2
+final[,c(2:dim(final)[2])] = NA
+for(i in seq(from=1,to=dim(score)[1],by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
+    if(is.na(score[i,j+1])==T){
+      final[i,j+1] = ''
+    } else {
+      final[i,j+1] = score2[i,j+1] / sum(score2[,j+1],na.rm = T)
+    }
+  }
+}
+
+write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
+```
