@@ -1,0 +1,106 @@
+---
+title: "Stack Survivor Model Results"
+author: "Scott Onestak"
+date: "11/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r packages}
+library('dplyr')
+library('tidyr')
+library('stringr')
+```
+
+```{r stack results}
+for(i in seq(from=12,to=39,by=1)){
+  season = i
+  theString = paste("Historical Results/season",season,".csv",sep="")
+  theData = read.csv(theString,header=T)
+  trans = theData %>% gather(.,WeekName,Odds,2:dim(theData)[2])
+  trans$Week = str_remove(trans$WeekName,"week")
+  trans$Week = as.numeric(trans$Week)
+  trans$season = i
+  trans$seasonName = NA
+  
+  theData$order = 1:nrow(theData)
+  temp = theData %>% select("Name","order")
+  
+  trans = trans %>% inner_join(.,temp,by="Name")
+  
+  #assign season name
+  if(i == 12){
+    trans$seasonName = "Survivor 12: Panama - Exile Island"
+  } else if(i == 13){
+    trans$seasonName = "Survivor 13: Cook Islands"
+  } else if(i == 14){
+    trans$seasonName = "Survivor 14: Fiji"
+  } else if(i == 15){
+    trans$seasonName = "Survivor 15: China"
+  } else if(i == 16){
+    trans$seasonName = "Survivor 16: Micronesia - Fans vs Favorites"
+  } else if(i == 17){
+    trans$seasonName = "Survivor 17: Gabon"
+  } else if(i == 18){
+    trans$seasonName = "Survivor 18: Tocantins"
+  } else if(i == 19){
+    trans$seasonName = "Survivor 19: Samoa"
+  } else if(i == 20){
+    trans$seasonName = "Survivor 20: Heroes vs Villains"
+  } else if(i == 21){
+    trans$seasonName = "Survivor 21: Nicaragua"
+  } else if(i == 22){
+    trans$seasonName = "Survivor 22: Redemption Island"
+  } else if(i == 23){
+    trans$seasonName = "Survivor 23: South Pacific"
+  } else if(i == 24){
+    trans$seasonName = "Survivor 24: One World"
+  } else if(i == 25){
+    trans$seasonName = "Survivor 25: Philippines"
+  } else if(i == 26){
+    trans$seasonName = "Survivor 26: Caramoan - Fans vs Favorites II"
+  } else if(i == 27){
+    trans$seasonName = "Survivor 27: Blood vs Water"
+  } else if(i == 28){
+    trans$seasonName = "Survivor 28: Cagayan - Brain vs Brawn vs Beauty"
+  } else if(i == 29){
+    trans$seasonName = "Survivor 29: San Juan del Sur - Blood vs Water II"
+  } else if(i == 30){
+    trans$seasonName = "Survivor 30: Worlds Apart"
+  } else if(i == 31){
+    trans$seasonName = "Survivor 31: Cambodia - Second Chance"
+  } else if(i == 32){
+    trans$seasonName = "Survivor 32: Kaoh Rong - Brain vs Brawn vs Beauty II"
+  } else if(i == 33){
+    trans$seasonName = "Survivor 33: Millenials vs Gen X"
+  } else if(i == 34){
+    trans$seasonName = "Survivor 34: Game Changers"
+  } else if(i == 35){
+    trans$seasonName = "Survivor 35: Heroes vs Healers vs Hustlers"
+  } else if(i == 36){
+    trans$seasonName = "Survivor 36: Ghost Island"
+  } else if(i == 37){
+    trans$seasonName = "Survivor 37: David vs Goliath"
+  } else if(i == 38){
+    trans$seasonName = "Survivor 38: Edge of Extinction"
+  } else if(i == 39){
+    trans$seasonName = "Survivor 39: Island of the Idols"
+  } else if(i == 40){
+    trans$seasonName = "Survivor 40: Winners at War"
+  } 
+  
+  trans = trans %>% select(c("Name","season","seasonName","order","Week","Odds"))
+  
+  if(i == 12){
+    final = trans
+  } else {
+    final = rbind(final,trans)
+  }
+}
+
+write.csv(final,"Historical Results/StackedResults.csv",row.names = F)
+```

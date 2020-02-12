@@ -1,5 +1,5 @@
 ---
-title: "Survivor_Winner_Model_Current"
+title: "Survivor_Winner_Model"
 author: "Scott Onestak"
 date: "10/20/2019"
 output: html_document
@@ -28,8 +28,7 @@ player_dataset[player_dataset==""]<-NA
 #Set Prediction Parameters
 ```{r set prediction parameters}
 Season = 39
-Weeks = 14 #Enter number of weeks to model... number of episodes so far + 1
-SeasonWeeks = 14 #Enter number of weeks in the season
+Weeks = 14 #Enter number of weeks in season
 ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
 ```
 
@@ -880,104 +879,44 @@ clean = predicts %>% inner_join(.,predicts2,by=c("Name","Placement"))
 current = ModelingDS %>% filter(SeasonNumber == Season)
 current$EliminationWeek = NA
 for(i in seq(1:dim(current)[1])){
-  if(is.na(current[i,"week2_rating"])==F) {
-    if(current[i,"week2_rating"] == "E"){
-      current[i,"EliminationWeek"] = 1
+  if(current[i,"week2_rating"] == "E") {
+    current[i,"EliminationWeek"] = 1
+  } else if(current[i,"week3_rating"] == "E") {
+    current[i,"EliminationWeek"] = 2
+  } else if(current[i,"week4_rating"] == "E") {
+    current[i,"EliminationWeek"] = 3
+  } else if(current[i,"week5_rating"] == "E") {
+    current[i,"EliminationWeek"] = 4
+  } else if(current[i,"week6_rating"] == "E") {
+    current[i,"EliminationWeek"] = 5
+  } else if(current[i,"week7_rating"] == "E") {
+    current[i,"EliminationWeek"] = 6
+  } else if(current[i,"week8_rating"] == "E") {
+    current[i,"EliminationWeek"] = 7
+  } else if(current[i,"week9_rating"] == "E") {
+    current[i,"EliminationWeek"] = 8
+  } else if(current[i,"week10_rating"] == "E") {
+    current[i,"EliminationWeek"] = 9
+  } else if(current[i,"week11_rating"] == "E") {
+    current[i,"EliminationWeek"] = 10
+  } else if(current[i,"week12_rating"] == "E") {
+    current[i,"EliminationWeek"] = 11
+  } else if(current[i,"week13_rating"] == "E") {
+    current[i,"EliminationWeek"] = 12
+  } else if(Weeks >= 14) {
+    if(current[i,"week14_rating"] == "E"){
+      current[i,"EliminationWeek"] = 13
     }
-  }
-  
-  if(is.na(current[i,"week3_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week3_rating"]=="E"){
-        current[i,"EliminationWeek"] = 2
-    }
-  } 
-  
-  if(is.na(current[i,"week4_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week4_rating"]=="E"){
-        current[i,"EliminationWeek"] = 3
-    }
-  } 
-  
-  if(is.na(current[i,"week5_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week5_rating"]=="E"){
-        current[i,"EliminationWeek"] = 4
-    }
-  } 
-  
-  if(is.na(current[i,"week6_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week6_rating"]=="E"){
-        current[i,"EliminationWeek"] = 5
-    }
-  } 
-  
-  if(is.na(current[i,"week7_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week7_rating"]=="E"){
-        current[i,"EliminationWeek"] = 6
-    }
-  } 
-  
-  if(is.na(current[i,"week8_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week8_rating"]=="E"){
-        current[i,"EliminationWeek"] = 7
-    }
-  } 
-  
-  if(is.na(current[i,"week9_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week9_rating"]=="E"){
-        current[i,"EliminationWeek"] = 8
-    }
-  } 
-  
-  if(is.na(current[i,"week10_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week10_rating"]=="E"){
-        current[i,"EliminationWeek"] = 9
-    }
-  } 
-  
-  if(is.na(current[i,"week11_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week11_rating"]=="E"){
-        current[i,"EliminationWeek"] = 10
-    }
-  } 
-  
-  if(is.na(current[i,"week12_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week12_rating"]=="E"){
-        current[i,"EliminationWeek"] = 11
-    }
-  } 
-  
-  if(is.na(current[i,"week13_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-    if(current[i,"week13_rating"]=="E"){
-        current[i,"EliminationWeek"] = 12
-    }
-  } 
-  
-  if(Weeks>=14){
-    if(is.na(current[i,"week14_rating"])==F  && is.na(current[i,"EliminationWeek"])==T) {
-      if(current[i,"week14_rating"]=="E"){
-          current[i,"EliminationWeek"] = 13
-      }
-    } 
+  } else {
+    current[i,"EliminationWeek"] = NA
   }
 }
 current = current %>% select("Name","EliminationWeek")
 clean = clean %>% inner_join(.,current,by="Name")
-for(i in seq(from=Weeks+1,to=SeasonWeeks,by=1)){
-  clean$test = NA
-  clean$test2 = NA
-  
-  colnames(clean)[dim(clean)[2]-1] = paste("week",i,"_place",sep='')
-  colnames(clean)[dim(clean)[2]] = paste("week",i,"_win",sep='')
-}
-clean = clean[,c("Name","Placement","week1_place","week2_place","week3_place","week4_place","week5_place"
-                 ,"week6_place","week7_place","week8_place","week9_place","week10_place","week11_place"
-                 ,"week12_place","week13_place","week14_place","week1_win","week2_win","week3_win","week4_win"
-                 ,"week5_win","week6_win","week7_win","week8_win","week9_win","week10_win","week11_win","week12_win"
-                 ,"week13_win","week14_win","EliminationWeek")]
 for(i in seq(from=1,to=dim(current)[1],by=1)){
   if(is.na(clean[i,"EliminationWeek"])==F){
     theWeek = clean[i,"EliminationWeek"] + 1
-    for(j in seq(from=theWeek,to=SeasonWeeks,by=1)){
+    for(j in seq(from=theWeek,to=Weeks,by=1)){
       clean[i,paste('week',j,"_place",sep='')] = NA
       clean[i,paste('week',j,"_win",sep='')] = NA
     }
@@ -985,7 +924,7 @@ for(i in seq(from=1,to=dim(current)[1],by=1)){
 }
 score = clean %>% select(c("Name"))
 for(i in seq(from=1,to=dim(clean)[1],by=1)){
-  for(j in seq(from=1,to=SeasonWeeks,by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
     if(i == 1){
       score$temp = NA
       colnames(score)[j+1] = paste("week",j-1,sep="")
@@ -994,21 +933,21 @@ for(i in seq(from=1,to=dim(clean)[1],by=1)){
     if(is.na(clean[i,j+2])==T){
       score[i,j+1] = NA
     } else {
-      if(j < SeasonWeeks - 6){
+      if(j < Weeks - 6){
         Win_Weight = 0
         Place_Weight = 100
       } else {
-        Win_Weight = 50/6*(j-(SeasonWeeks-6))
+        Win_Weight = 50/6*(j-(Weeks-6))
         Place_Weight = 100 - Win_Weight
       }
-      score[i,j+1] = Place_Weight*((1-(clean[i,j+2]-min(clean[,j+2],na.rm=T))/(max(clean[,j+2],na.rm=T)-min(clean[,j+2],na.rm=T)))+.01) + Win_Weight*(((clean[i,j+2+SeasonWeeks]-min(clean[,j+2+SeasonWeeks],na.rm=T))/(max(clean[,j+2+SeasonWeeks],na.rm=T)-min(clean[,j+2+SeasonWeeks],na.rm=T)))+.01)
+      score[i,j+1] = Place_Weight*((1-(clean[i,j+2]-min(clean[,j+2],na.rm=T))/(max(clean[,j+2],na.rm=T)-min(clean[,j+2],na.rm=T)))+.01) + Win_Weight*(((clean[i,j+2+Weeks]-min(clean[,j+2+Weeks],na.rm=T))/(max(clean[,j+2+Weeks],na.rm=T)-min(clean[,j+2+Weeks],na.rm=T)))+.01)
     }
   }
 }
 final = score
 final[,c(2:dim(final)[2])] = NA
 for(i in seq(from=1,to=dim(score)[1],by=1)){
-  for(j in seq(from=1,to=SeasonWeeks,by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
     if(is.na(score[i,j+1])==T){
       final[i,j+1] = ''
     } else {
@@ -1016,12 +955,6 @@ for(i in seq(from=1,to=dim(score)[1],by=1)){
     }
   }
 }
-final = final %>% inner_join(.,current,by="Name")
-Eliminated = final %>% filter(is.na(EliminationWeek)==F)
-Active = final %>% filter(is.na(EliminationWeek)==T)
-Active = Active[order(Active[, Weeks+1],decreasing = T),]
-final = rbind(Active,Eliminated)
-final = final %>% select(-EliminationWeek)
 write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
 ```
 
