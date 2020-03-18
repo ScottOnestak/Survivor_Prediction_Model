@@ -27,8 +27,8 @@ player_dataset[player_dataset==""]<-NA
 
 #Set Prediction Parameters
 ```{r set prediction parameters}
-Season = 39
-Weeks = 14 #Enter number of weeks to model... number of episodes so far + 1
+Season = 40
+Weeks = 6 #Enter number of weeks to model... number of episodes so far + 1
 SeasonWeeks = 14 #Enter number of weeks in the season
 ModelingDS = player_dataset %>% filter(SeasonNumber <= Season)
 ```
@@ -1076,7 +1076,7 @@ for(j in seq(from=2,to=dim(score2)[2],by=1)){
            score[i,1]=="Wendy Diaz") {
           score2[i,j] = (1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13)) * score[i,j]
         } else {
-          score2[i,j] = (1 + (15-12-6*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/12) * score[i,j]
+          score2[i,j] = (1 + (14-12-6*((1/6 + (1/6)*(7/13)*(1/13) + (5/6)*(1/13))))/12) * score[i,j]
         }
       } else if(j == 8){
         if(score[i,1]=="Reem Daly" |
@@ -1192,5 +1192,93 @@ for(i in seq(from=1,to=dim(score)[1],by=1)){
     }
   }
 }
+write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
+```
+
+#Edge of Extinction Re-weight - Winners at War
+```{r edge season 40}
+score2 = score
+score2[,c(2:dim(final)[2])] = NA
+for(j in seq(from=2,to=dim(score2)[2],by=1)){
+  for(i in seq(from=1,to=dim(score2)[1])){
+    if(is.na(score[i,j])==T){
+      score2[i,j] = NA
+    } else {
+      if(j == 2){
+        score2[i,j] = 1/18 * score[i,j]
+      }
+      else if(j == 3){
+        if(score[i,1]=="Natalie Anderson" |
+           score[i,1]=="Amber Mariano"){
+          score2[i,j] = (1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (20-18-2*((1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15))))/18) * score[i,j]
+        }
+       }
+      else if(j == 4) {
+         if(score[i,1]=="Natalie Anderson" |
+            score[i,1]=="Amber Mariano" |
+            score[i,1]=="Danni Boatwright"){
+           score2[i,j] = (1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15)) * score[i,j]
+         } else {
+           score2[i,j] = (1 + (20-17-3*((1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15))))/17) * score[i,j]
+            }
+       }
+      else if(j == 5) {
+         if(score[i,1]=="Natalie Anderson" |
+            score[i,1]=="Amber Mariano" |
+            score[i,1]=="Danni Boatwright" |
+            score[i,1]=="Ethan Zohn"){
+           score2[i,j] = (1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15)) * score[i,j]
+         } else {
+           score2[i,j] = (1 + (20-16-4*((1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15))))/16) * score[i,j]
+         }
+      }
+      else if(j == 6) {
+        if(score[i,1]=="Natalie Anderson" |
+           score[i,1]=="Amber Mariano" |
+           score[i,1]=="Danni Boatwright" |
+           score[i,1]=="Ethan Zohn" |
+           score[i,1]=="Tyson Apostol") {
+          score2[i,j] = (1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (20-15-5*((1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15))))/15) * score[i,j] 
+           }
+      }
+       else if(j == 7) {
+        if(score[i,1]=="Natalie Anderson" |
+           score[i,1]=="Amber Mariano" |
+           score[i,1]=="Danni Boatwright" |
+           score[i,1]=="Ethan Zohn" |
+           score[i,1]=="Tyson Apostol"|
+           score[i,1]=="Rob 'Boston Rob' Mariano") {
+          score2[i,j] = (1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15)) * score[i,j]
+        } else {
+          score2[i,j] = (1 + (20-14-6*((1/8 + (1/8)*(7/13)*(1/15) + (7/8)*(1/15))))/14) * score[i,j] 
+           }
+      }
+      else {
+        score2[i,j] = score[i,j]
+      }
+    }
+  }
+}
+final = score2
+final[,c(2:dim(final)[2])] = NA
+for(i in seq(from=1,to=dim(score)[1],by=1)){
+  for(j in seq(from=1,to=Weeks,by=1)){
+    if(is.na(score[i,j+1])==T){
+      final[i,j+1] = ''
+    } else {
+      final[i,j+1] = score2[i,j+1] / sum(score2[,j+1],na.rm = T)
+    }
+  }
+}
+final = final %>% inner_join(.,current,by="Name")
+Eliminated = final %>% filter(is.na(EliminationWeek)==F)
+Active = final %>% filter(is.na(EliminationWeek)==T)
+Active = Active[order(Active[, Weeks+1],decreasing = T),]
+final = rbind(Active,Eliminated)
+final = final %>% select(-EliminationWeek)
 write.csv(final,paste("Historical Results/season",Season,".csv",sep=''),row.names = F)
 ```
